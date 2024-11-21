@@ -14,7 +14,10 @@
     [(list-rest 'brak res) (tex-bracket res)]
     [(list-rest 'sbrk res) (tex-squarebracket res)]
     [(list-rest 'brac res) (tex-brace res)]
+    [(list-rest 'arr res) (tex-array res)]
+    [(list-rest 'lbrc res) (tex-left-brace res)]
     [(? pair? sexp) (map tex-preprocess sexp)]
+    ['coma ","]
     [(? greek? sexp) (list "\\" (symbol->string sexp) " ")]
     [(? tex-sym-assoc sexp) (list "\\" (cdr (tex-sym-assoc sexp)) " ")]
     [(? symbol? sexp) (symbol->string sexp)]
@@ -64,17 +67,29 @@
       (error "FRAC: invalid input")
       (list "\\frac{" (tex-preprocess (first sexp)) "}{" (tex-preprocess (second sexp)) "}")))
 
+(define (tex-array-content sexp)
+  (add-between (map (lambda (s)
+                      ; s is each line
+                      ; (map parse s) is to parse every single element
+                      (add-between (map tex-preprocess s) " & "))
+                    sexp)
+               " \\\\\n"))
+
 (define (tex-bmatrix sexp)
   (if (not (apply = (map length sexp)))
       (error "BMATRIX: invalid input")
       (list "\\begin{bmatrix}\n"
-            (add-between (map (lambda (s)
-                                ; s is each line
-                                ; (map parse s) is to parse every single element
-                                (add-between (map tex-preprocess s) " & "))
-                              sexp)
-                         " \\\\\n")
+            (tex-array-content sexp)
             "\n\\end{bmatrix}")))
+
+(define (tex-array sexp)
+  (if (not (apply = (map length (rest sexp))))
+      (error "ARRAY: invalid input")
+      (list "\\begin{array}{"
+            (first sexp)
+            "}\n"
+            (tex-array-content (rest sexp))
+            "\n\\end{array} ")))
 
 (define (tex-sum sexp)
   (define n (length sexp))
@@ -97,6 +112,9 @@
 (define (tex-brace sexp)
   (list "\\left\\{ " (tex-preprocess sexp) "\\right\\} "))
 
+(define (tex-left-brace sexp)
+  (list "\\left\\{ " (tex-preprocess sexp) "\\right."))
+
 (displayln (sexp->latex `("a" + "b" - alpha (sup "c"))))
 (displayln (sexp->latex `("a" "b" (frac ("a" "b") ("c" "d")))))
 (define abc `(a + b - c))
@@ -105,3 +123,8 @@
 (displayln (sexp->latex `(a + b + (sum (i = 1) (6) i))))
 (displayln (sexp->latex `(a prod b oadd c)))
 (displayln (sexp->latex `(a + (brak b + c) - (sbrk (d - e)) prod (brac f))))
+(displayln (sexp->latex `(lbrc (arr "ccc"
+                                    ((a + b) = 1)
+                                    (b coma (a > 3))
+                                    (c coma "otherwise")
+                                    (d = 5)))))
